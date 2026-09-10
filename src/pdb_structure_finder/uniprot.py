@@ -34,3 +34,67 @@ for info in PDB_infos:
 
 df = pd.DataFrame(report)
 print(df)
+
+# Try to use PDB API for getting the sctructures
+# Still try with P00450
+pdb_code = df["database_id"].iloc[0]
+url_pdb = f"https://files.rcsb.org/download/{pdb_code}.cif"
+response_pdb = httpx.get(url_pdb)
+print(response_pdb)
+if response_pdb.status_code == 200:
+    content_pdb = response_pdb.text
+
+# save cif file
+from pathlib import Path
+DEST_FOLDER = Path(f"../../tests")
+with open(f"{DEST_FOLDER}/{pdb_code}.cif", "w") as k:
+    k.write(content_pdb)
+
+# check non-polymer entity
+# Using GraphQL
+import requests
+url_graph = "https://data.rcsb.org/graphql"
+query = """
+    query GetEntry($pdb_id: String!) {
+        entry(entry_id: $pdb_id) {
+            rcsb_id
+            nonpolymer_entities {
+                rcsb_id
+                rcsb_nonpolymer_entity_container_identifiers {
+                    entry_id
+                    entity_id
+                    auth_asym_ids
+                    asym_ids
+                    nonpolymer_comp_id
+                }
+                nonpolymer_comp {
+                    chem_comp {
+                        id
+                        formula_weight
+                        name
+                        formula
+                    }
+                }
+            }
+        } 
+    }
+"""
+variables = {
+        "pdb_id": pdb_code
+}
+response_graph = requests.post(
+        url_graph,
+        json={
+            "query":query,
+            "variables": variables
+        }
+)
+
+data = response_graph.json()
+print(data)
+url_non_polymer = "https://data.rcsb.org/rest/v1/core/nonpolymer_entity/{pdb_code}/1"
+response_non_polymer = httpx.get(url_non_polymer)
+print(response_non_polymer)
+if response_non_polymer.status_code == 200:
+    content_non_polymer = response_non_polymer.json()
+    print(content_non_polymer)
