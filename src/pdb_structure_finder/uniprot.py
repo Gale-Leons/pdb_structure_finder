@@ -2,6 +2,7 @@ from pathlib import Path
 import httpx
 import json
 import pandas as pd
+import gemi
 
 url = "https://rest.uniprot.org/uniprotkb/P00450.json"
 response = httpx.get(url)
@@ -92,9 +93,49 @@ response_graph = requests.post(
 
 data = response_graph.json()
 print(data)
-url_non_polymer = "https://data.rcsb.org/rest/v1/core/nonpolymer_entity/{pdb_code}/1"
-response_non_polymer = httpx.get(url_non_polymer)
-print(response_non_polymer)
-if response_non_polymer.status_code == 200:
-    content_non_polymer = response_non_polymer.json()
-    print(content_non_polymer)
+entry = data["data"]["entry"]
+nonpolymer_entities = entry["nonpolymer_entities"]
+metal_entity = None
+
+for entity in nonpolymer_entities:
+    comp_id = entity[
+        "rcsb_nonpolymer_entity_container_identifiers"
+    ]["nonpolymer_comp_id"]
+
+    if comp_id == "CU":
+        metal_entity = entity
+        break
+
+if metal_entity is None:
+    raise ValueError(f"Nessuna entita' CU trovata per {pdb_code}")
+
+container = metal_entity[
+    "rcsb_nonpolymer_entity_container_identifiers"
+]
+
+asym_ids = container["asym_ids"]
+
+print("Metal:", container["nonpolymer_comp_id"])
+print("Asym IDs:", asym_ids)
+
+url_atoms = (
+    f"https://models.rcsb.org/v1/{pdb_code}/atoms"
+)
+params = {
+    "label_asym_id": asym_ids[0],
+    "encoding": "cif",
+    "copy_all_categories": "false",
+    "download": "false",
+}
+response_atoms = httpx.get(
+    url_atoms,
+    params=params,
+)
+response_atoms.raise_for_status()
+cif_text = response_atoms.text
+# url_non_polymer = "https://data.rcsb.org/rest/v1/core/nonpolymer_entity/{pdb_code}/1"
+# response_non_polymer = httpx.get(url_non_polymer)
+# print(response_non_polymer)
+# if response_non_polymer.status_code == 200:
+#     content_non_polymer = response_non_polymer.json()
+#     print(content_non_polymer)
