@@ -2,7 +2,6 @@ from pathlib import Path
 import httpx
 import json
 import pandas as pd
-import gemi
 
 url = "https://rest.uniprot.org/uniprotkb/P00450.json"
 response = httpx.get(url)
@@ -133,9 +132,18 @@ response_atoms = httpx.get(
 )
 response_atoms.raise_for_status()
 cif_text = response_atoms.text
-# url_non_polymer = "https://data.rcsb.org/rest/v1/core/nonpolymer_entity/{pdb_code}/1"
-# response_non_polymer = httpx.get(url_non_polymer)
-# print(response_non_polymer)
-# if response_non_polymer.status_code == 200:
-#     content_non_polymer = response_non_polymer.json()
-#     print(content_non_polymer)
+#print(cif_text)
+
+# read residues surrounding directly from cif
+import gemmi
+
+doc = gemmi.cif.read_string(cif_text)
+block = doc.sole_block()
+
+data = block.get_mmcif_category("_struct_conn")
+idx = data["id"].index("metalc21")
+connection = {
+    key: values[idx]
+    for key, values in data.items()
+}
+print(connection)
